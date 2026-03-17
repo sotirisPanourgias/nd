@@ -10,22 +10,7 @@ const port = process.env.PORT || 3000;
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend/public")));
 
-// Initialize an in-memory database.
-const db = new sqlite3.Database(":memory:");
-
-db.serialize(() => {
-  db.run(`
-    CREATE TABLE IF NOT EXISTS players (
-      id INTEGER PRIMARY KEY,
-      name TEXT NOT NULL
-    )
-  `);
-});
-
-const handleDbError = (res, err) => {
-  console.error(err);
-  return res.status(500).json({ error: "Database error" });
-};
+// to do connect db 
 
 // Simple game state: track which player (by player.id) is the impostor.
 const gameState = {
