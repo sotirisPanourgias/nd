@@ -1,0 +1,11 @@
+{
+  "name": "nd-frontend",
+  "version": "0.1.0",
+  "private": true,
+  "scripts": {
+    "start": "serve -s public -l 3001"
+  },
+  "devDependencies": {
+    "serve": "^14.2.0"
+  }
+}
