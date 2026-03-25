@@ -2,186 +2,263 @@
 
 const express = require("express");
 const path = require("path");
-const sqlite3 = require("sqlite3").verbose();
 
 const app = express();
-const port = process.env.PORT || 3000;
+const port = process.env.PORT || 8081;
 
 app.use(express.json());
 app.use(express.static(path.join(__dirname, "../frontend/public")));
 
-// to do connect db 
+const mysql = require("mysql2/promise");
 
-// Simple game state: track which player (by player.id) is the impostor.
-const gameState = {
-  impostorPlayerId: null,
+const pool = mysql.createPool({
+  host: process.env.DB_HOST || "localhost",
+  port: Number(process.env.DB_PORT || 3306),
+  user: process.env.DB_USER || "impostor_user",
+  password: process.env.DB_PASSWORD || "impostor_pass",
+  database: process.env.DB_NAME || "impostor",
+  waitForConnections: true,
+  connectionLimit: 10,
+  queueLimit: 0,
+});
+
+const dbAll = async (sql, params = []) => {
+  const [rows] = await pool.query(sql, params);
+  return rows;
 };
 
+const dbGet = async (sql, params = []) => {
+  const [rows] = await pool.query(sql, params);
+  return rows[0];
+};
+
+const dbRun = async (sql, params = []) => {
+  const [result] = await pool.execute(sql, params);
+  return result;
+};
+
+const handleDbError = (res, err) => {
+  console.error("Database error:", err);
+  return res.status(500).json({ error: "Database error" });
+};
+
+const gameState = { impostorPlayerId: null };
+
 // GET /game?userId=1 -> returns the matching player for that user as well as role.
-app.get("/game", (req, res) => {
-  const userId = Number(req.query.userId);
-  if (!userId || Number.isNaN(userId) || userId < 1) {
-    return res.status(400).json({ error: "userId query parameter is required (1 or greater)" });
-  }
-
-  if (!gameState.impostorPlayerId) {
-    return res.status(400).json({ error: "Game not started. Call /game/reset first." });
-  }
-
-  const playerId = userId;
-
-  db.get(
-    "SELECT id, name FROM players WHERE id = ?",
-    [playerId],
-    (err, row) => {
-      if (err) return handleDbError(res, err);
-      if (!row) return res.status(404).json({ error: "Player not found" });
-
-      const role = playerId === gameState.impostorPlayerId ? "impostor" : "crewmate";
-      res.json({ player: row, userId, role });
+app.get("/game", async (req, res) => {
+  try {
+    const userId = Number(req.query.userId);
+    if (!userId || Number.isNaN(userId) || userId < 1) {
+      return res.status(400).json({ error: "userId query parameter is required (1 or greater)" });
     }
-  );
+
+    if (!gameState.impostorPlayerId) {
+      return res.status(400).json({ error: "Game not started. Call /game/reset first." });
+    }
+
+    const playerId = userId;
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = ?", [playerId]);
+    if (!row) return res.status(404).json({ error: "User not found" });
+
+    const role = playerId === gameState.impostorPlayerId ? "impostor" : "crewmate";
+    res.json({ player: row, userId, role });
+  } catch (err) {
+    handleDbError(res, err);
+  }
 });
 
 // POST /game/reset -> start a new round (re-roll impostor)
-app.post("/game/reset", (req, res) => {
-  db.all("SELECT id FROM players", (err, rows) => {
-    if (err) return handleDbError(res, err);
-    if (!rows || rows.length < 3) {
-      return res.status(400).json({ error: "Not enough players. Add at least 3 players." });
+app.post("/game/reset", async (req, res) => {
+  try {
+    const rows = await dbAll("SELECT id FROM users");
+    if (!rows || rows.length < 2) {
+      return res.status(400).json({ error: "Not enough users. Add at least 2 users." });
     }
 
     const randomIndex = Math.floor(Math.random() * rows.length);
     gameState.impostorPlayerId = rows[randomIndex].id;
     res.json({ ok: true, impostorPlayerId: gameState.impostorPlayerId });
-  });
+  } catch (err) {
+    handleDbError(res, err);
+  }
 });
 
 // POST /game/end -> reset game and remove all players
-app.post("/game/end", (req, res) => {
-  db.run("DELETE FROM players", (err) => {
-    if (err) return handleDbError(res, err);
-    gameState.impostorUserId = null;
+app.post("/game/end", async (req, res) => {
+  try {
+    await dbRun("DELETE FROM users");
+    gameState.impostorPlayerId = null;
     res.json({ ok: true });
-  });
+  } catch (err) {
+    handleDbError(res, err);
+  }
 });
 
-// GET /players -> list all players
-app.get("/players", (req, res) => {
-  db.all("SELECT id, name FROM players", (err, rows) => {
-    if (err) return handleDbError(res, err);
+// GET /users -> list all users (aliases as players)
+app.get("/users", async (req, res) => {
+  try {
+    const rows = await dbAll("SELECT id, name AS name FROM users");
     res.json(rows);
-  });
-});
-
-// GET /players/:id -> returns a player record from the database
-app.get("/players/:id", (req, res) => {
-  const playerId = Number(req.params.id);
-  if (Number.isNaN(playerId)) {
-    return res.status(400).json({ error: "Invalid player id" });
+  } catch (err) {
+    handleDbError(res, err);
   }
-
-  db.get(
-    "SELECT id, name FROM players WHERE id = ?",
-    [playerId],
-    (err, row) => {
-      if (err) return handleDbError(res, err);
-      if (!row) return res.status(404).json({ error: "Player not found" });
-      res.json(row);
-    }
-  );
 });
 
+// GET /users/:id -> returns a user record from the database
+app.get("/users/:id", async (req, res) => {
+  try {
+    const playerId = Number(req.params.id);
+    if (Number.isNaN(playerId)) {
+      return res.status(400).json({ error: "Invalid player id" });
+    }
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = ?", [playerId]);
+    if (!row) return res.status(404).json({ error: "User not found" });
+    res.json(row);
+  } catch (err) {
+    handleDbError(res, err);
+  }
+});
+
+// POST /users -> create a new user
+app.post("/users", async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== "string") {
+      return res.status(400).json({ error: "Name is required" });
+    }
+
+    const result = await dbRun("INSERT INTO users (name) VALUES (?)", [name]);
+    const id = result.insertId || result.insertID || result.lastID || null;
+    if (!id) {
+      return res.status(500).json({ error: "Failed to create user" });
+    }
+
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = ?", [id]);
+    res.status(201).json(row);
+  } catch (err) {
+    handleDbError(res, err);
+  }
+});
+
+// PUT /users/:id -> update a user
+app.put("/users/:id", async (req, res) => {
+  try {
+    const playerId = Number(req.params.id);
+    if (Number.isNaN(playerId)) {
+      return res.status(400).json({ error: "Invalid player id" });
+    }
+
+    const { name } = req.body;
+    if (name !== undefined && typeof name !== "string") {
+      return res.status(400).json({ error: "Name must be a string" });
+    }
+
+    const updates = [];
+    const params = [];
+
+    if (name !== undefined) {
+      updates.push("name = ?");
+      params.push(name);
+    }
+
+    if (!updates.length) {
+      return res.status(400).json({ error: "No fields to update" });
+    }
+
+    params.push(playerId);
+    const result = await dbRun(`UPDATE users SET ${updates.join(", ")} WHERE id = ?`, params);
+    const changes = result.affectedRows || result.changes || 0;
+    if (changes === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = ?", [playerId]);
+    res.json(row);
+  } catch (err) {
+    handleDbError(res, err);
+  }
+});
+
+// DELETE /users/:id -> delete a user
+app.delete("/users/:id", async (req, res) => {
+  try {
+    const playerId = Number(req.params.id);
+    if (Number.isNaN(playerId)) {
+      return res.status(400).json({ error: "Invalid player id" });
+    }
+
+    const result = await dbRun("DELETE FROM users WHERE id = ?", [playerId]);
+    const changes = result.affectedRows || result.changes || 0;
+    if (changes === 0) {
+      return res.status(404).json({ error: "User not found" });
+    }
+
+    res.status(204).send();
+  } catch (err) {
+    handleDbError(res, err);
+  }
+});
+
+// Alias route to match users style
+app.get("/users", async (req, res) => {
+  try {
+    const rows = await dbAll("SELECT id, name AS name FROM users");
+    res.json(rows);
+  } catch (err) {
+    handleDbError(res, err);
+  }
+});
+
+app.get("/users/:id", async (req, res) => {
+  try {
+    const userId = Number(req.params.id);
+    if (Number.isNaN(userId)) {
+      return res.status(400).json({ error: "Invalid user id" });
+    }
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = ?", [userId]);
+    if (!row) return res.status(404).json({ error: "User not found" });
+    res.json(row);
+  } catch (err) {
+    handleDbError(res, err);
+  }
+});
+// GET /players -> returns a user record from the database
+app.get("/players", async (req, res) => {
+  try {
+    //const playerId = Math.floor(Math.random() * 100) + 1; // από 1 έως 100
+    const playerId = 29;
+    if (Number.isNaN(playerId)) {
+      return res.status(400).json({ error: "Invalid player id" });
+    }
+    const row = await dbGet("SELECT  name AS name FROM players WHERE id = ?", [playerId]);
+    if (!row) return res.status(404).json({ error: "Player not found" });
+    res.json(row);
+  } catch (err) {
+    handleDbError(res, err);
+  }
+});
 // POST /players -> create a new player
-app.post("/players", (req, res) => {
-  const { name } = req.body;
-  if (!name || typeof name !== "string") {
-    return res.status(400).json({ error: "Name is required" });
-  }
-
-  db.run(
-    "INSERT INTO players (name) VALUES (?)",
-    [name],
-    function (err) {
-      if (err) return handleDbError(res, err);
-      db.get(
-        "SELECT id, name FROM players WHERE id = ?",
-        [this.lastID],
-        (err2, row) => {
-          if (err2) return handleDbError(res, err2);
-          res.status(201).json(row);
-        }
-      );
+app.post("/players", async (req, res) => {
+  try {
+    const { name } = req.body;
+    if (!name || typeof name !== "string") {
+      return res.status(400).json({ error: "Name is required" });
     }
-  );
-});
 
-// PUT /players/:id -> update a player
-app.put("/players/:id", (req, res) => {
-  const playerId = Number(req.params.id);
-  if (Number.isNaN(playerId)) {
-    return res.status(400).json({ error: "Invalid player id" });
-  }
-
-  const { name } = req.body;
-  if (name !== undefined && typeof name !== "string") {
-    return res.status(400).json({ error: "Name must be a string" });
-  }
-
-  const updates = [];
-  const params = [];
-
-  if (name !== undefined) {
-    updates.push("name = ?");
-    params.push(name);
-  }
-
-  if (!updates.length) {
-    return res.status(400).json({ error: "No fields to update" });
-  }
-
-  params.push(playerId);
-  db.run(
-    `UPDATE players SET ${updates.join(", ")} WHERE id = ?`,
-    params,
-    function (err) {
-      if (err) return handleDbError(res, err);
-      if (this.changes === 0) {
-        return res.status(404).json({ error: "Player not found" });
-      }
-      db.get(
-        "SELECT id, name, score FROM players WHERE id = ?",
-        [playerId],
-        (err2, row) => {
-          if (err2) return handleDbError(res, err2);
-          res.json(row);
-        }
-      );
+    const result = await dbRun("INSERT INTO players (name) VALUES (?)", [name]);
+    const id = result.insertId || result.insertID || result.lastID || null;
+    if (!id) {
+      return res.status(500).json({ error: "Failed to create player" });
     }
-  );
-});
 
-// DELETE /players/:id -> delete a player
-app.delete("/players/:id", (req, res) => {
-  const playerId = Number(req.params.id);
-  if (Number.isNaN(playerId)) {
-    return res.status(400).json({ error: "Invalid player id" });
+    const row = await dbGet("SELECT id, name AS name FROM players WHERE id = ?", [id]);
+    res.status(201).json(row);
+  } catch (err) {
+    handleDbError(res, err);
   }
-
-  db.run(
-    "DELETE FROM players WHERE id = ?",
-    [playerId],
-    function (err) {
-      if (err) return handleDbError(res, err);
-      if (this.changes === 0) {
-        return res.status(404).json({ error: "Player not found" });
-      }
-      res.status(204).send();
-    }
-  );
 });
 
 app.listen(port, () => {
   console.log(`Server running on http://localhost:${port}`);
-  console.log(`Try: curl http://localhost:${port}/players`);
+  console.log(`DB mode: MySQL`);
 });

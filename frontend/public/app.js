@@ -9,6 +9,11 @@ const gameTitle = el("gameTitle");
 const numPlayersInput = el("numPlayers");
 const playerInputsContainer = el("playerInputs");
 const setupPlayersBtn = el("setupPlayers");
+const nextPlayerBtn = el("nextPlayer");
+const setupSection = el("setupSection");
+const createSection = el("createSection");
+const gameSection = el("gameSection");
+const playersSection = el("playersSection");
 const roleDisplay = el("role");
 
 const renderPlayerInputs = (count) => {
@@ -40,6 +45,23 @@ const setPlayerCount = (count) => {
   numPlayersInput.value = validCount;
   renderPlayerInputs(validCount);
   updateUserIdRange(validCount);
+};
+
+const showOnlySetup = () => {
+  setupSection.style.display = "block";
+  createSection.style.display = "none";
+  gameSection.style.display = "none";
+  playersSection.style.display = "none";
+  nextPlayerBtn.style.display = "none";
+  nextPlayerBtn.disabled = false;
+};
+
+const proceedToGame = () => {
+  setupSection.style.display = "none";
+  createSection.style.display = "none";
+  gameSection.style.display = "block";
+  playersSection.style.display = "block";
+  nextPlayerBtn.style.display = "inline-block";
 };
 
 const promptPlayerCount = () => {
@@ -81,7 +103,7 @@ const renderPlayers = (players) => {
       const newName = prompt("New name:", player.name);
       if (!newName) return;
 
-      await fetch(`${apiBase}players/${player.id}`, {
+      await fetch(`${apiBase}users/${player.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: newName }),
@@ -93,7 +115,7 @@ const renderPlayers = (players) => {
     const deleteBtn = document.createElement("button");
     deleteBtn.textContent = "Delete";
     deleteBtn.onclick = async () => {
-      await fetch(`${apiBase}players/${player.id}`, { method: "DELETE" });
+      await fetch(`${apiBase}users/${player.id}`, { method: "DELETE" });
       await loadPlayers();
     };
     row.appendChild(deleteBtn);
@@ -103,7 +125,7 @@ const renderPlayers = (players) => {
 };
 
 const loadPlayers = async () => {
-  const res = await fetch(`${apiBase}players`);
+  const res = await fetch(`${apiBase}users`);
   const players = await res.json();
   renderPlayers(players);
 
@@ -116,25 +138,40 @@ const loadRole = async () => {
   if (!userId || userId < 1) return;
 
   const res = await fetch(`${apiBase}game?userId=${userId}`);
+  const players = await fetch(`${apiBase}players`);
   if (!res.ok) {
     roleDisplay.textContent = "Failed to load role";
     return;
   }
 
   const data = await res.json();
+  const playerRes = await players.json();
   const roleEmoji = data.role === "impostor" ? "🎭" : "🟢";
-  roleDisplay.textContent = `${roleEmoji} User ${data.userId} is ${data.role.toUpperCase()} (player: ${data.player.name})`;
+  if(data.role === "impostor"){
+    roleDisplay.textContent = `${roleEmoji} You are the Impostor!`;
+  } else {
+    roleDisplay.textContent = `${roleEmoji} ${playerRes.name}`;
+  }
+  //roleDisplay.textContent = `${roleEmoji} User ${data.userId} is ${data.role.toUpperCase()} (player: ${data.player.name}) Player is ${playerRes.name}`;
   roleDisplay.className = data.role === "impostor" ? "badge-impostor" : "badge-crewmate";
 };
 
 const newRound = async () => {
   const res = await fetch(`${apiBase}game/reset`, { method: "POST" });
   if (!res.ok) {
-    roleDisplay.textContent = "Failed to start new round";
-    return;
+    let message = "Failed to start new round";
+    try {
+      const json = await res.json();
+      if (json && json.error) message += `: ${json.error}`;
+    } catch (e) {
+      // ignore parse failures
+    }
+    roleDisplay.textContent = message;
+    return false;
   }
 
   await loadRole();
+  return true;
 };
 
 const endGame = async () => {
@@ -169,6 +206,11 @@ el("create").addEventListener("click", async () => {
 el("loadRole").addEventListener("click", loadRole);
 el("newRound").addEventListener("click", newRound);
 el("endGame").addEventListener("click", endGame);
+el("nextPlayer").addEventListener("click", async () => {
+  userIdInput.value = 1;
+  await loadRole();
+  nextPlayerBtn.disabled = true;
+});
 
 numPlayersInput.addEventListener("change", () => setPlayerCount(numPlayersInput.value));
 setupPlayersBtn.addEventListener("click", async () => {
@@ -190,7 +232,7 @@ setupPlayersBtn.addEventListener("click", async () => {
   }
 
   for (const name of names.slice(0, count)) {
-    await fetch(`${apiBase}players`, {
+    await fetch(`${apiBase}users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name }),
@@ -199,11 +241,12 @@ setupPlayersBtn.addEventListener("click", async () => {
 
   setPlayerCount(count);
   await loadPlayers();
-  await newRound();
+  const roundOk = await newRound();
+  if (roundOk) {
+    proceedToGame();
+  }
 });
 
 // Initialize UI
 setPlayerCount(numPlayersInput.value);
-promptPlayerCount();
-loadPlayers();
-loadRole();
+showOnlySetup();

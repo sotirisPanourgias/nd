@@ -150,7 +150,7 @@
   <main>
     <h1>🏀 Basketball Squad</h1>
 
-    <section>
+    <section id="setupSection">
       <h2>Setup players</h2>
       <label>
         Number of players<br />
@@ -159,9 +159,10 @@
       <div id="playerInputs" style="margin-top: 0.75rem;"></div>
       <br />
       <button id="setupPlayers">Setup</button>
+      <button id="nextPlayer" style="display:none;">Next</button>
     </section>
 
-    <section>
+    <section id="createSection">
       <h2>Create player</h2>
       <label>
         Name<br />
@@ -171,11 +172,11 @@
       <button id="create">Create</button>
     </section>
 
-    <section>
+    <section id="gameSection" style="display:none;">
       <h2 id="gameTitle">Game</h2>
       <label>
         Your user ID (<span id="userIdRange">1–3</span>)<br />
-        <input id="userId" type="number" min="1" value="1" />
+        <input id="userId" type="number" min="1" value="22" />
       </label>
       <br />
       <button id="loadRole">Load role</button>
