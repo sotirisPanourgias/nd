@@ -15,6 +15,8 @@ const createSection = el("createSection");
 const gameSection = el("gameSection");
 const playersSection = el("playersSection");
 const roleDisplay = el("role");
+const showRoleBtn = el("showRole");
+let pendingRoleData = null;
 
 const renderPlayerInputs = (count) => {
   playerInputsContainer.innerHTML = "";
@@ -143,15 +145,13 @@ const loadRole = async () => {
     return;
   }
 
-  const data = await res.json();
-  const roleEmoji = data.role === "impostor" ? "🎭" : "🟢";
-  if(data.role === "impostor"){
-    roleDisplay.textContent = `${roleEmoji} You are the Impostor!`;
-  } else {
-    roleDisplay.textContent = `${roleEmoji} ${data.playerName}`;
-  }
-  //roleDisplay.textContent = `${roleEmoji} User ${data.userId} is ${data.role.toUpperCase()} (player: ${data.player.name}) Player is ${playerRes.name}`;
-  roleDisplay.className = data.role === "impostor" ? "badge-impostor" : "badge-crewmate";
+  pendingRoleData = await res.json();
+
+  // 👇 ΜΟΝΟ μήνυμα
+  roleDisplay.textContent = "Role loaded. Press show button";
+
+  // 👇 δείχνουμε κουμπί
+  showRoleBtn.style.display = "inline-block";
 };
 
 const newRound = async () => {
@@ -247,7 +247,24 @@ setupPlayersBtn.addEventListener("click", async () => {
     proceedToGame();
   }
 });
+showRoleBtn.addEventListener("click", () => {
+  if (!pendingRoleData) return;
 
+  const roleEmoji = pendingRoleData.role === "impostor" ? "🎭" : "🟢";
+
+  if (pendingRoleData.role === "impostor") {
+    roleDisplay.textContent = `${roleEmoji} You are the Impostor!`;
+  } else {
+    roleDisplay.textContent = `${roleEmoji} ${pendingRoleData.playerName}`;
+  }
+
+  roleDisplay.className =
+    pendingRoleData.role === "impostor"
+      ? "badge-impostor"
+      : "badge-crewmate";
+
+  showRoleBtn.style.display = "none";
+});
 // Initialize UI
 setPlayerCount(numPlayersInput.value);
 showOnlySetup();
