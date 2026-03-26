@@ -231,11 +231,14 @@ setupPlayersBtn.addEventListener("click", async () => {
     return;
   }
 
-  for (const name of names.slice(0, count)) {
+  for (let i = 0; i < count; i++) {
+    const name = names[i];   // παίρνουμε το i-οστό όνομα
+    const aid = i + 1;       // id από 1 έως count
+
     await fetch(`${apiBase}users`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ name }),
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ id:aid, name }),
     });
   }
 

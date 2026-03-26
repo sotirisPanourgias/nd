@@ -122,14 +122,14 @@ app.get("/users/:id", async (req, res) => {
 // POST /users -> create a new user
 app.post("/users", async (req, res) => {
   try {
-    const { name } = req.body;
+    const { id,name } = req.body;
     if (!name || typeof name !== "string") {
       return res.status(400).json({ error: "Name is required" });
     }
 
-    const result = await dbRun("INSERT INTO users (name) VALUES (?)", [name]);
-    const id = result.insertId || result.insertID || result.lastID || null;
-    if (!id) {
+    const result = await dbRun("INSERT INTO users (id, name) VALUES (?, ?)", [id, name]);
+    const userId = result.insertId || result.insertID || result.lastID || null;
+    if (!userId) {
       return res.status(500).json({ error: "Failed to create user" });
     }
 
