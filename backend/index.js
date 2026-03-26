@@ -12,7 +12,7 @@ app.use(express.static(path.join(__dirname, "../frontend/public")));
 const mysql = require("mysql2/promise");
 
 const pool = mysql.createPool({
-  host: process.env.DB_HOST || "localhost",
+  host: process.env.DB_HOST || "localhost",//192.168.1.211
   port: Number(process.env.DB_PORT || 3306),
   user: process.env.DB_USER || "impostor_user",
   password: process.env.DB_PASSWORD || "impostor_pass",
@@ -42,7 +42,7 @@ const handleDbError = (res, err) => {
   return res.status(500).json({ error: "Database error" });
 };
 
-const gameState = { impostorPlayerId: null };
+const gameState = { impostorPlayerId: null,playerName: null };
 
 // GET /game?userId=1 -> returns the matching player for that user as well as role.
 app.get("/game", async (req, res) => {
@@ -58,10 +58,13 @@ app.get("/game", async (req, res) => {
 
     const playerId = userId;
     const row = await dbGet("SELECT id, name AS name FROM users WHERE id = ?", [playerId]);
+    // const playerRows = await dbAll("SELECT id, name FROM players");
     if (!row) return res.status(404).json({ error: "User not found" });
 
     const role = playerId === gameState.impostorPlayerId ? "impostor" : "crewmate";
-    res.json({ player: row, userId, role });
+    // const randomPlayerIndex = Math.floor(Math.random() * playerRows.length);
+    // playerName = playerRows[randomPlayerIndex].name;
+    res.json({ player: row, userId, role , playerName : gameState.playerName});
   } catch (err) {
     handleDbError(res, err);
   }
@@ -71,13 +74,16 @@ app.get("/game", async (req, res) => {
 app.post("/game/reset", async (req, res) => {
   try {
     const rows = await dbAll("SELECT id FROM users");
+    const playerRows = await dbAll("SELECT id, name FROM players");
     if (!rows || rows.length < 2) {
       return res.status(400).json({ error: "Not enough users. Add at least 2 users." });
     }
 
     const randomIndex = Math.floor(Math.random() * rows.length);
     gameState.impostorPlayerId = rows[randomIndex].id;
-    res.json({ ok: true, impostorPlayerId: gameState.impostorPlayerId });
+    const randomPlayerIndex = Math.floor(Math.random() * playerRows.length);
+    gameState.playerName = playerRows[randomPlayerIndex].name;
+    res.json({ ok: true, impostorPlayerId: gameState.impostorPlayerId,playerName: gameState.playerName });
   } catch (err) {
     handleDbError(res, err);
   }
@@ -226,7 +232,7 @@ app.get("/users/:id", async (req, res) => {
 app.get("/players", async (req, res) => {
   try {
     //const playerId = Math.floor(Math.random() * 100) + 1; // από 1 έως 100
-    const playerId = 29;
+    const playerId = Math.floor(Math.random() * 2) + 29;
     if (Number.isNaN(playerId)) {
       return res.status(400).json({ error: "Invalid player id" });
     }

@@ -138,19 +138,17 @@ const loadRole = async () => {
   if (!userId || userId < 1) return;
 
   const res = await fetch(`${apiBase}game?userId=${userId}`);
-  const players = await fetch(`${apiBase}players`);
   if (!res.ok) {
     roleDisplay.textContent = "Failed to load role";
     return;
   }
 
   const data = await res.json();
-  const playerRes = await players.json();
   const roleEmoji = data.role === "impostor" ? "🎭" : "🟢";
   if(data.role === "impostor"){
     roleDisplay.textContent = `${roleEmoji} You are the Impostor!`;
   } else {
-    roleDisplay.textContent = `${roleEmoji} ${playerRes.name}`;
+    roleDisplay.textContent = `${roleEmoji} ${data.playerName}`;
   }
   //roleDisplay.textContent = `${roleEmoji} User ${data.userId} is ${data.role.toUpperCase()} (player: ${data.player.name}) Player is ${playerRes.name}`;
   roleDisplay.className = data.role === "impostor" ? "badge-impostor" : "badge-crewmate";
