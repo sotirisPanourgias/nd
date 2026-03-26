@@ -243,7 +243,7 @@ setupPlayersBtn.addEventListener("click", async () => {
   }
 
   setPlayerCount(count);
-  await loadPlayers();
+  //await loadPlayers();
   const roundOk = await newRound();
   if (roundOk) {
     proceedToGame();
