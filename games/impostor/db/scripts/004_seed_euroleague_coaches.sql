@@ -1,0 +1,22 @@
+-- EuroLeague 2025-26 head coaches
+INSERT INTO coaches (id, name, league, active) VALUES
+  (gen_random_uuid(), 'Chus Mateo', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Joan Peñarroya', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Ergin Ataman', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Sarunas Jasikevicius', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Georgios Bartzokas', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Tomislav Mijatovic', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Sasa Obradovic', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Nenad Bjelica', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Carles Marco', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Ettore Messina', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Gordon Herbert', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Oded Kattash', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Pablo Laso', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Tiago Splitter', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Ainars Bagatskis', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'TJ Parker', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Zeljko Obradovic', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Alex Mumbru', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Luca Banchi', 'EUROLEAGUE', true),
+  (gen_random_uuid(), 'Andrea Trinchieri', 'EUROLEAGUE', true);

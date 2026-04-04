@@ -4,13 +4,13 @@
   "private": true,
   "description": "A Node.js monorepo with a frontend and backend project.",
   "workspaces": [
-    "backend",
-    "frontend"
+    "games/impostor/backend",
+    "games/impostor/frontend"
   ],
   "scripts": {
     "start": "npm run start:backend",
-    "start:backend": "npm --workspace backend start",
-    "start:frontend": "npm --workspace frontend start",
+    "start:backend": "npm --workspace games/impostor/backend start",
+    "start:frontend": "npm --workspace games/impostor/frontend start",
     "test": "echo \"No tests specified\" && exit 0"
   },
   "engines": {

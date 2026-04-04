@@ -4,11 +4,10 @@
   "private": true,
   "main": "index.js",
   "scripts": {
-    "start": "node index.js"
+    "start": "node scripts/seed.js && node index.js"
   },
   "dependencies": {
     "express": "^4.18.2",
-    "mysql2": "^3.20.0",
-    "sqlite3": "^5.1.6"
+    "pg": "^8.13.3"
   }
 }

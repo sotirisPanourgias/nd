@@ -1,22 +1,26 @@
 const apiBase = "/";
 
 const el = (id) => document.getElementById(id);
+let selectedLeague = "NBA";
+let selectedCategory = "PLAYERS";
+let selectedEra = "ACTIVE";
+let numImpostors = 1;
+let playerNames = [];
 const playersContainer = el("players");
 const nameInput = el("name");
-const userIdInput = el("userId");
-const userIdRange = el("userIdRange");
 const gameTitle = el("gameTitle");
 const numPlayersInput = el("numPlayers");
 const playerInputsContainer = el("playerInputs");
 const setupPlayersBtn = el("setupPlayers");
 const nextPlayerBtn = el("nextPlayer");
+const holdRoleBtn = el("holdRole");
 const setupSection = el("setupSection");
 const createSection = el("createSection");
 const gameSection = el("gameSection");
-const playersSection = el("playersSection");
 const roleDisplay = el("role");
-const showRoleBtn = el("showRole");
 let pendingRoleData = null;
+let currentPlayerId = 1;
+let totalPlayers = 2;
 
 const renderPlayerInputs = (count) => {
   playerInputsContainer.innerHTML = "";
@@ -37,9 +41,6 @@ const renderPlayerInputs = (count) => {
 const updateUserIdRange = (maxId) => {
   const safeMax = Math.max(2, maxId);
   gameTitle.textContent = `Game (${safeMax} players)`;
-  userIdRange.textContent = `1–${safeMax}`;
-  userIdInput.max = safeMax;
-  if (Number(userIdInput.value) > safeMax) userIdInput.value = 1;
 };
 
 const setPlayerCount = (count) => {
@@ -53,16 +54,14 @@ const showOnlySetup = () => {
   setupSection.style.display = "block";
   createSection.style.display = "none";
   gameSection.style.display = "none";
-  playersSection.style.display = "none";
   nextPlayerBtn.style.display = "none";
-  nextPlayerBtn.disabled = false;
 };
 
 const proceedToGame = () => {
   setupSection.style.display = "none";
   createSection.style.display = "none";
   gameSection.style.display = "block";
-  playersSection.style.display = "block";
+  holdRoleBtn.style.display = "flex";
   nextPlayerBtn.style.display = "inline-block";
 };
 
@@ -135,40 +134,46 @@ const loadPlayers = async () => {
   if (maxPlayerId > 0) updateUserIdRange(maxPlayerId);
 };
 
-const loadRole = async () => {
-  const userId = Number(userIdInput.value);
-  if (!userId || userId < 1) return;
-
+const loadRoleSilent = async (userId) => {
   const res = await fetch(`${apiBase}game?userId=${userId}`);
-  if (!res.ok) {
-    roleDisplay.textContent = "Failed to load role";
-    return;
-  }
-
+  if (!res.ok) return;
   pendingRoleData = await res.json();
+  roleDisplay.textContent = "";
+  roleDisplay.className = "";
+};
 
-  // 👇 ΜΟΝΟ μήνυμα
-  roleDisplay.textContent = "Role loaded. Press show button";
+const revealRole = () => {
+  if (!pendingRoleData) return;
+  const emoji = pendingRoleData.role === "impostor" ? "🎭" : "🟢";
+  roleDisplay.textContent = pendingRoleData.role === "impostor"
+    ? `${emoji} You are the Impostor!`
+    : `${emoji} ${pendingRoleData.playerName}`;
+  roleDisplay.className = pendingRoleData.role === "impostor" ? "badge-impostor" : "badge-crewmate";
+};
 
-  // 👇 δείχνουμε κουμπί
-  showRoleBtn.style.display = "inline-block";
+const hideRole = () => {
+  roleDisplay.textContent = "";
+  roleDisplay.className = "";
 };
 
 const newRound = async () => {
-  const res = await fetch(`${apiBase}game/reset`, { method: "POST" });
+  const res = await fetch(`${apiBase}game/reset`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ league: selectedLeague, category: selectedCategory, era: selectedEra, numImpostors }),
+  });
   if (!res.ok) {
-    let message = "Failed to start new round";
-    try {
-      const json = await res.json();
-      if (json && json.error) message += `: ${json.error}`;
-    } catch (e) {
-      // ignore parse failures
-    }
-    roleDisplay.textContent = message;
+    roleDisplay.textContent = "Failed to start new round";
     return false;
   }
-
-  await loadRole();
+  currentPlayerId = 1;
+  el("currentPlayerLabel").textContent = `Player 1 of ${totalPlayers} — hold the button to see your role`;
+  el("roundEndSection").style.display = "none";
+  el("starterAnnouncement").textContent = "";
+  holdRoleBtn.style.display = "flex";
+  nextPlayerBtn.style.display = "inline-block";
+  hideRole();
+  await loadRoleSilent(1);
   return true;
 };
 
@@ -178,9 +183,9 @@ const endGame = async () => {
     roleDisplay.textContent = "Failed to end game";
     return;
   }
-
-  roleDisplay.textContent = "Game ended. Add players to start a new game.";
-  await loadPlayers();
+  hideRole();
+  pendingRoleData = null;
+  showOnlySetup();
 };
 
 const createPlayer = async () => {
@@ -201,16 +206,56 @@ el("create").addEventListener("click", async () => {
   await createPlayer();
   await loadPlayers();
 });
-el("loadRole").addEventListener("click", loadRole);
-el("newRound").addEventListener("click", newRound);
-el("endGame").addEventListener("click", endGame);
-el("nextPlayer").addEventListener("click", async () => {
-  userIdInput.value = 1;
-  await loadRole();
-  nextPlayerBtn.disabled = true;
+
+holdRoleBtn.addEventListener("mousedown", revealRole);
+holdRoleBtn.addEventListener("touchstart", (e) => { e.preventDefault(); revealRole(); }, { passive: false });
+holdRoleBtn.addEventListener("mouseup", hideRole);
+holdRoleBtn.addEventListener("mouseleave", hideRole);
+holdRoleBtn.addEventListener("touchend", hideRole);
+holdRoleBtn.addEventListener("touchcancel", hideRole);
+
+nextPlayerBtn.addEventListener("click", async () => {
+  hideRole();
+  if (currentPlayerId >= totalPlayers) {
+    holdRoleBtn.style.display = "none";
+    nextPlayerBtn.style.display = "none";
+    el("roundEndSection").style.display = "block";
+    el("currentPlayerLabel").textContent = "All players done!";
+    const starter = playerNames[Math.floor(Math.random() * playerNames.length)];
+    el("starterAnnouncement").textContent = `🎙️ ${starter} starts !`;
+  } else {
+    currentPlayerId++;
+    el("currentPlayerLabel").textContent = `Player ${currentPlayerId} of ${totalPlayers} — hold the button to see your role`;
+    await loadRoleSilent(currentPlayerId);
+  }
 });
 
-numPlayersInput.addEventListener("change", () => setPlayerCount(numPlayersInput.value));
+el("newRoundBtn").addEventListener("click", newRound);
+el("endGameBtn").addEventListener("click", endGame);
+
+// Impostor stepper
+el("impostorDec").addEventListener("click", () => {
+  if (numImpostors > 1) {
+    numImpostors--;
+    el("impostorCount").textContent = numImpostors;
+  }
+});
+el("impostorInc").addEventListener("click", () => {
+  const max = Math.max(1, Number(el("numPlayers").value) - 1);
+  if (numImpostors < max) {
+    numImpostors++;
+    el("impostorCount").textContent = numImpostors;
+  }
+});
+numPlayersInput.addEventListener("change", () => {
+  const max = Math.max(1, Number(numPlayersInput.value) - 1);
+  if (numImpostors > max) {
+    numImpostors = max;
+    el("impostorCount").textContent = numImpostors;
+  }
+  setPlayerCount(numPlayersInput.value);
+});
+
 setupPlayersBtn.addEventListener("click", async () => {
   const count = Number(numPlayersInput.value);
   if (!count || count < 2) {
@@ -230,41 +275,52 @@ setupPlayersBtn.addEventListener("click", async () => {
   }
 
   for (let i = 0; i < count; i++) {
-    const name = names[i];   // παίρνουμε το i-οστό όνομα
-    const aid = i + 1;       // id από 1 έως count
+    const name = names[i];
+    const aid = i + 1;
 
     await fetch(`${apiBase}users`, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ id:aid, name }),
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ id: aid, name }),
     });
   }
 
+  playerNames = names.slice(0, count);
+  totalPlayers = count;
   setPlayerCount(count);
-  //await loadPlayers();
   const roundOk = await newRound();
   if (roundOk) {
     proceedToGame();
   }
 });
-showRoleBtn.addEventListener("click", () => {
-  if (!pendingRoleData) return;
 
-  const roleEmoji = pendingRoleData.role === "impostor" ? "🎭" : "🟢";
-
-  if (pendingRoleData.role === "impostor") {
-    roleDisplay.textContent = `${roleEmoji} You are the Impostor!`;
-  } else {
-    roleDisplay.textContent = `${roleEmoji} ${pendingRoleData.playerName}`;
-  }
-
-  roleDisplay.className =
-    pendingRoleData.role === "impostor"
-      ? "badge-impostor"
-      : "badge-crewmate";
-
-  showRoleBtn.style.display = "none";
+// Era toggle
+document.getElementById("eraToggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-era]");
+  if (!btn) return;
+  selectedEra = btn.dataset.era;
+  document.querySelectorAll("#eraToggle button").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
 });
+
+// Category toggle
+document.getElementById("categoryToggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-category]");
+  if (!btn) return;
+  selectedCategory = btn.dataset.category;
+  document.querySelectorAll("#categoryToggle button").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
+});
+
+// League toggle
+document.getElementById("leagueToggle").addEventListener("click", (e) => {
+  const btn = e.target.closest("button[data-league]");
+  if (!btn) return;
+  selectedLeague = btn.dataset.league;
+  document.querySelectorAll("#leagueToggle button").forEach((b) => b.classList.remove("active"));
+  btn.classList.add("active");
+});
+
 // Initialize UI
 setPlayerCount(numPlayersInput.value);
 showOnlySetup();

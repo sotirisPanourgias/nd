@@ -1,0 +1,18 @@
+databases:
+  - name: nd-impostor-db
+    databaseName: impostor
+    plan: free
+
+services:
+  - type: web
+    name: nd-impostor
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    plan: free
+    envVars:
+      - key: DATABASE_URL
+        fromDatabase:
+          name: nd-impostor-db
+          property: connectionString
+      - key: PORT
+        value: 8081

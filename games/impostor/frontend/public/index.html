@@ -1,0 +1,353 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>EuroLeague Impostor</title>
+  <style>
+    :root {
+      --bg: radial-gradient(circle at top, #f8b73d, #c75618 70%);
+      --card: rgba(255, 255, 255, 0.9);
+      --primary: #d35400;
+      --primary-dark: #a84300;
+      --text: #1a1a1a;
+      --shadow: 0 4px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    body {
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      margin: 0;
+      min-height: 100vh;
+      background: var(--bg);
+      color: var(--text);
+      display: flex;
+      justify-content: center;
+      padding: 2rem 1rem;
+    }
+
+    main {
+      width: min(760px, 100%);
+    }
+
+    h1 {
+      margin: 0 0 0.75rem;
+      font-size: 2.1rem;
+      letter-spacing: 0.04em;
+      text-align: center;
+    }
+
+    h2 {
+      font-size: 1.25rem;
+      margin: 0 0 0.5rem;
+    }
+
+    section {
+      background: var(--card);
+      border-radius: 18px;
+      box-shadow: var(--shadow);
+      padding: 1.25rem 1.25rem 1.5rem;
+      margin-bottom: 1.25rem;
+    }
+
+    label {
+      display: block;
+      margin-bottom: 0.5rem;
+    }
+
+    input,
+    button {
+      padding: 0.65rem 0.85rem;
+      border-radius: 999px;
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      font-size: 1rem;
+      outline: none;
+    }
+
+    input {
+      width: 100%;
+      max-width: 280px;
+      box-sizing: border-box;
+    }
+
+    button {
+      cursor: pointer;
+      background: var(--primary);
+      color: white;
+      border: 1px solid rgba(0, 0, 0, 0.18);
+      transition: transform 160ms ease, box-shadow 160ms ease;
+      margin-right: 0.35rem;
+    }
+
+    button:hover {
+      transform: translateY(-1px);
+      box-shadow: 0 6px 18px rgba(0, 0, 0, 0.18);
+    }
+
+    button:active {
+      transform: translateY(0);
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.18);
+    }
+
+    hr {
+      border: none;
+      height: 1px;
+      background: rgba(0, 0, 0, 0.1);
+      margin: 1.25rem 0;
+    }
+
+    #players {
+      display: grid;
+      gap: 0.75rem;
+    }
+
+    .player {
+      background: rgba(255, 255, 255, 0.9);
+      border-radius: 16px;
+      box-shadow: var(--shadow);
+      padding: 0.85rem;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 0.75rem;
+    }
+
+    .player-info {
+      display: flex;
+      align-items: center;
+      gap: 0.75rem;
+    }
+
+    .player-name {
+      font-weight: 600;
+      letter-spacing: 0.02em;
+    }
+
+    .player-badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 0.35rem;
+      background: rgba(243, 156, 18, 0.25);
+      border-radius: 999px;
+      padding: 0.25rem 0.55rem;
+      font-size: 0.9rem;
+    }
+
+    .badge-impostor {
+      background: rgba(231, 76, 60, 0.18);
+    }
+
+    .badge-crewmate {
+      background: rgba(46, 204, 113, 0.18);
+    }
+
+    .small-text {
+      font-size: 0.85rem;
+      opacity: 0.8;
+    }
+
+    #holdRole {
+      background: var(--primary);
+      border-radius: 18px;
+      padding: 2.5rem 1.5rem;
+      text-align: center;
+      cursor: pointer;
+      user-select: none;
+      -webkit-user-select: none;
+      margin-top: 0.75rem;
+      color: white;
+      min-height: 140px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 0.6rem;
+      transition: background 120ms ease, transform 120ms ease;
+      box-shadow: var(--shadow);
+    }
+
+    #holdRole:active {
+      background: var(--primary-dark);
+      transform: scale(0.98);
+    }
+
+    #roleWidgetHint {
+      font-size: 1.15rem;
+      font-weight: 600;
+      margin: 0;
+      opacity: 0.92;
+    }
+
+    #role {
+      font-size: 1.4rem;
+      font-weight: 700;
+      margin: 0;
+      min-height: 1.6rem;
+    }
+
+    #nextPlayer {
+      width: 100%;
+      margin-top: 1rem;
+      padding: 0.85rem;
+      font-size: 1.05rem;
+      font-weight: 600;
+      border-radius: 999px;
+    }
+
+    .league-toggle {
+      display: inline-flex;
+      border-radius: 999px;
+      border: 1.5px solid rgba(0,0,0,0.15);
+      overflow: hidden;
+      margin-top: 0.4rem;
+    }
+
+    .league-toggle button {
+      border-radius: 0;
+      border: none;
+      border-right: 1.5px solid rgba(0,0,0,0.12);
+      background: rgba(255,255,255,0.5);
+      color: var(--text);
+      font-size: 0.88rem;
+      font-weight: 600;
+      padding: 0.45rem 0.95rem;
+      margin: 0;
+      letter-spacing: 0.02em;
+      transition: background 120ms ease, color 120ms ease;
+    }
+
+    .league-toggle button:last-child {
+      border-right: none;
+    }
+
+    .league-toggle button.active {
+      background: var(--primary);
+      color: white;
+    }
+
+    .league-toggle button:hover:not(.active) {
+      background: rgba(211,84,0,0.12);
+      transform: none;
+      box-shadow: none;
+    }
+
+    .stepper {
+      display: inline-flex;
+      align-items: center;
+      border-radius: 999px;
+      border: 1.5px solid rgba(0,0,0,0.15);
+      overflow: hidden;
+      margin-top: 0.4rem;
+    }
+
+    .stepper button {
+      border: none;
+      border-radius: 0;
+      background: rgba(255,255,255,0.5);
+      color: var(--text);
+      font-size: 1.15rem;
+      font-weight: 700;
+      padding: 0.4rem 0.9rem;
+      margin: 0;
+      min-width: 2.4rem;
+      transition: background 120ms ease;
+    }
+
+    .stepper button:hover {
+      background: rgba(211,84,0,0.15);
+      transform: none;
+      box-shadow: none;
+    }
+
+    .stepper button:active {
+      background: var(--primary);
+      color: white;
+      transform: none;
+    }
+
+    #impostorCount {
+      min-width: 2rem;
+      text-align: center;
+      font-weight: 700;
+      font-size: 1rem;
+      padding: 0 0.3rem;
+      border-left: 1.5px solid rgba(0,0,0,0.12);
+      border-right: 1.5px solid rgba(0,0,0,0.12);
+    }
+  </style>
+</head>
+<body>
+  <main>
+    <h1>🏀 Basketball Impostor</h1>
+
+    <section id="setupSection">
+      <h2>Setup players</h2>
+      <label style="margin-bottom:0.75rem;">
+        League edition<br />
+        <div class="league-toggle" id="leagueToggle">
+          <button data-league="NBA" class="active">🏀 NBA</button>
+          <button data-league="EUROLEAGUE">🏆 EuroLeague</button>
+          <button data-league="BOTH">⭐ Both</button>
+        </div>
+      </label>
+      <label style="margin-bottom:0.75rem;">
+        Category<br />
+        <div class="league-toggle" id="categoryToggle">
+          <button data-category="PLAYERS" class="active">👤 Players</button>
+          <button data-category="GENERAL">🌐 General</button>
+        </div>
+      </label>
+      <label style="margin-bottom:0.75rem;">
+        Era<br />
+        <div class="league-toggle" id="eraToggle">
+          <button data-era="ACTIVE" class="active">🟢 Active</button>
+          <button data-era="LEGENDS">🏛️ Legends</button>
+          <button data-era="BOTH">⭐ Both</button>
+        </div>
+      </label>
+      <label>
+        Number of players<br />
+        <input id="numPlayers" type="number" min="2" value="3" />
+      </label>
+      <label style="margin-bottom:0.75rem;">
+        Impostors<br />
+        <div class="stepper">
+          <button id="impostorDec">−</button>
+          <span id="impostorCount">1</span>
+          <button id="impostorInc">+</button>
+        </div>
+      </label>
+      <div id="playerInputs" style="margin-top: 0.75rem;"></div>
+      <br />
+      <button id="setupPlayers">Setup</button>
+    </section>
+
+    <section id="createSection">
+      <h2>Create player</h2>
+      <label>
+        Name<br />
+        <input id="name" placeholder="Alice" />
+      </label>
+      <br />
+      <button id="create">Create</button>
+    </section>
+
+    <section id="gameSection" style="display:none;">
+      <h2 id="gameTitle">Game</h2>
+      <p id="currentPlayerLabel" class="small-text"></p>
+      <div id="holdRole" style="display:none;">
+        <p id="roleWidgetHint">👆 Hold to see your role</p>
+        <p id="role"></p>
+      </div>
+      <button id="nextPlayer" style="display:none;">Next Player ➡</button>
+      <div id="roundEndSection" style="display:none; margin-top:1rem;">
+        <p id="starterAnnouncement" style="font-size:1.15rem; font-weight:700; text-align:center; margin-bottom:0.75rem;"></p>
+        <button id="newRoundBtn">New Round</button>
+        <button id="endGameBtn">End Game</button>
+      </div>
+    </section>
+
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
