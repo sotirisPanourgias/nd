@@ -31,6 +31,21 @@ const seed = async () => {
     // Always run schema (IF NOT EXISTS guards it)
     await runFile(path.join(DB_SCRIPTS_DIR, "001_create_tables.sql"));
 
+    // Migrate users table to support room_id for multi-session isolation
+    await pool.query(`
+      DO $$
+      BEGIN
+        IF NOT EXISTS (
+          SELECT 1 FROM information_schema.columns
+          WHERE table_name = 'users' AND column_name = 'room_id'
+        ) THEN
+          ALTER TABLE users DROP CONSTRAINT IF EXISTS users_pkey;
+          ALTER TABLE users ADD COLUMN room_id VARCHAR(36) NOT NULL DEFAULT '';
+          ALTER TABLE users ADD PRIMARY KEY (room_id, id);
+        END IF;
+      END $$;
+    `);
+
     // Only seed if tables are empty
     const { rows } = await pool.query("SELECT COUNT(*) AS count FROM players");
     if (parseInt(rows[0].count, 10) > 0) {

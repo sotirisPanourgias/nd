@@ -1,5 +1,16 @@
 const apiBase = "/";
 
+const generateRoomId = () => {
+  if (typeof crypto !== "undefined" && typeof crypto.randomUUID === "function") {
+    return crypto.randomUUID();
+  }
+  // Fallback for non-secure (HTTP) contexts
+  return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, (c) => {
+    const r = (Math.random() * 16) | 0;
+    return (c === "x" ? r : (r & 0x3) | 0x8).toString(16);
+  });
+};
+
 const el = (id) => document.getElementById(id);
 let selectedLeague = "NBA";
 let selectedCategory = "PLAYERS";
@@ -19,6 +30,7 @@ const createSection = el("createSection");
 const gameSection = el("gameSection");
 const roleDisplay = el("role");
 let pendingRoleData = null;
+let roomId = null;
 let currentPlayerId = 1;
 let totalPlayers = 2;
 
@@ -107,7 +119,7 @@ const renderPlayers = (players) => {
       await fetch(`${apiBase}users/${player.id}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name: newName }),
+        body: JSON.stringify({ name: newName, roomId: roomId || "" }),
       });
       await loadPlayers();
     };
@@ -116,7 +128,7 @@ const renderPlayers = (players) => {
     const deleteBtn = document.createElement("button");
     deleteBtn.textContent = "Delete";
     deleteBtn.onclick = async () => {
-      await fetch(`${apiBase}users/${player.id}`, { method: "DELETE" });
+      await fetch(`${apiBase}users/${player.id}?roomId=${roomId || ''}`, { method: "DELETE" });
       await loadPlayers();
     };
     row.appendChild(deleteBtn);
@@ -126,7 +138,7 @@ const renderPlayers = (players) => {
 };
 
 const loadPlayers = async () => {
-  const res = await fetch(`${apiBase}users`);
+  const res = await fetch(`${apiBase}users?roomId=${roomId || ''}`);
   const players = await res.json();
   renderPlayers(players);
 
@@ -135,7 +147,7 @@ const loadPlayers = async () => {
 };
 
 const loadRoleSilent = async (userId) => {
-  const res = await fetch(`${apiBase}game?userId=${userId}`);
+  const res = await fetch(`${apiBase}game?userId=${userId}&roomId=${roomId || ''}`);
   if (!res.ok) return;
   pendingRoleData = await res.json();
   roleDisplay.textContent = "";
@@ -160,7 +172,7 @@ const newRound = async () => {
   const res = await fetch(`${apiBase}game/reset`, {
     method: "POST",
     headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ league: selectedLeague, category: selectedCategory, era: selectedEra, numImpostors }),
+    body: JSON.stringify({ league: selectedLeague, category: selectedCategory, era: selectedEra, numImpostors, roomId: roomId || '' }),
   });
   if (!res.ok) {
     roleDisplay.textContent = "Failed to start new round";
@@ -178,7 +190,11 @@ const newRound = async () => {
 };
 
 const endGame = async () => {
-  const res = await fetch(`${apiBase}game/end`, { method: "POST" });
+  const res = await fetch(`${apiBase}game/end`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ roomId: roomId || "" }),
+  });
   if (!res.ok) {
     roleDisplay.textContent = "Failed to end game";
     return;
@@ -264,7 +280,14 @@ setupPlayersBtn.addEventListener("click", async () => {
   }
 
   // Reset state and create a fresh list of players.
-  await fetch(`${apiBase}game/end`, { method: "POST" });
+  if (roomId) {
+    await fetch(`${apiBase}game/end`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ roomId }),
+    });
+  }
+  roomId = generateRoomId();
 
   const inputs = Array.from(playerInputsContainer.querySelectorAll("input"));
   const names = inputs.map((i) => i.value.trim()).filter(Boolean);
@@ -281,7 +304,7 @@ setupPlayersBtn.addEventListener("click", async () => {
     await fetch(`${apiBase}users`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ id: aid, name }),
+      body: JSON.stringify({ id: aid, name, roomId }),
     });
   }
 

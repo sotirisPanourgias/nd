@@ -42,27 +42,31 @@ const handleDbError = (res, err) => {
   return res.status(500).json({ error: "Database error" });
 };
 
-const gameState = { impostorPlayerIds: [], playerName: null };
+const gameStates = new Map(); // roomId -> { impostorPlayerIds, playerName }
 
-// GET /game?userId=1 -> returns the matching player for that user as well as role.
+// GET /game?userId=1&roomId=xyz -> returns the matching player for that user as well as role.
 app.get("/game", async (req, res) => {
   try {
     const userId = Number(req.query.userId);
+    const roomId = req.query.roomId;
     if (!userId || Number.isNaN(userId) || userId < 1) {
       return res.status(400).json({ error: "userId query parameter is required (1 or greater)" });
     }
+    if (!roomId) {
+      return res.status(400).json({ error: "roomId query parameter is required" });
+    }
 
-    if (!gameState.impostorPlayerIds.length) {
+    const state = gameStates.get(roomId);
+    if (!state || !state.impostorPlayerIds.length) {
       return res.status(400).json({ error: "Game not started. Call /game/reset first." });
     }
 
     const playerId = userId;
-    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = $1", [playerId]);
-    // const playerRows = await dbAll("SELECT id, name FROM players");
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE room_id = $1 AND id = $2", [roomId, playerId]);
     if (!row) return res.status(404).json({ error: "User not found" });
 
-    const role = gameState.impostorPlayerIds.includes(playerId) ? "impostor" : "crewmate";
-    res.json({ player: row, userId, role, playerName: gameState.playerName });
+    const role = state.impostorPlayerIds.includes(playerId) ? "impostor" : "crewmate";
+    res.json({ player: row, userId, role, playerName: state.playerName });
   } catch (err) {
     handleDbError(res, err);
   }
@@ -71,7 +75,11 @@ app.get("/game", async (req, res) => {
 // POST /game/reset -> start a new round (re-roll impostor)
 app.post("/game/reset", async (req, res) => {
   try {
-    const rows = await dbAll("SELECT id FROM users");
+    const roomId = req.body && req.body.roomId;
+    if (!roomId) {
+      return res.status(400).json({ error: "roomId is required in the request body" });
+    }
+    const rows = await dbAll("SELECT id FROM users WHERE room_id = $1", [roomId]);
     const league = req.body && req.body.league;
     const category = req.body && req.body.category;
     const era = req.body && req.body.era;
@@ -105,10 +113,11 @@ app.post("/game/reset", async (req, res) => {
     const requestedImpostors = Math.floor(Number(req.body && req.body.numImpostors) || 1);
     const impostorCount = Math.max(1, Math.min(requestedImpostors, rows.length - 1));
     const shuffled = [...rows].sort(() => Math.random() - 0.5);
-    gameState.impostorPlayerIds = shuffled.slice(0, impostorCount).map((r) => r.id);
+    const impostorPlayerIds = shuffled.slice(0, impostorCount).map((r) => r.id);
     const randomPlayerIndex = Math.floor(Math.random() * playerRows.length);
-    gameState.playerName = playerRows[randomPlayerIndex].name;
-    res.json({ ok: true, impostorPlayerIds: gameState.impostorPlayerIds, playerName: gameState.playerName });
+    const playerName = playerRows[randomPlayerIndex].name;
+    gameStates.set(roomId, { impostorPlayerIds, playerName });
+    res.json({ ok: true, roomId, impostorPlayerIds, playerName });
   } catch (err) {
     handleDbError(res, err);
   }
@@ -117,8 +126,11 @@ app.post("/game/reset", async (req, res) => {
 // POST /game/end -> reset game and remove all players
 app.post("/game/end", async (req, res) => {
   try {
-    await dbRun("DELETE FROM users");
-    gameState.impostorPlayerIds = [];
+    const roomId = req.body && req.body.roomId;
+    if (roomId) {
+      await dbRun("DELETE FROM users WHERE room_id = $1", [roomId]);
+      gameStates.delete(roomId);
+    }
     res.json({ ok: true });
   } catch (err) {
     handleDbError(res, err);
@@ -128,7 +140,8 @@ app.post("/game/end", async (req, res) => {
 // GET /users -> list all users (aliases as players)
 app.get("/users", async (req, res) => {
   try {
-    const rows = await dbAll("SELECT id, name AS name FROM users");
+    const roomId = req.query.roomId || "";
+    const rows = await dbAll("SELECT id, name AS name FROM users WHERE room_id = $1", [roomId]);
     res.json(rows);
   } catch (err) {
     handleDbError(res, err);
@@ -139,10 +152,11 @@ app.get("/users", async (req, res) => {
 app.get("/users/:id", async (req, res) => {
   try {
     const playerId = Number(req.params.id);
+    const roomId = req.query.roomId || "";
     if (Number.isNaN(playerId)) {
       return res.status(400).json({ error: "Invalid player id" });
     }
-    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = $1", [playerId]);
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE room_id = $1 AND id = $2", [roomId, playerId]);
     if (!row) return res.status(404).json({ error: "User not found" });
     res.json(row);
   } catch (err) {
@@ -153,14 +167,17 @@ app.get("/users/:id", async (req, res) => {
 // POST /users -> create a new user
 app.post("/users", async (req, res) => {
   try {
-    const { id, name } = req.body;
+    const { id, name, roomId } = req.body;
     if (!name || typeof name !== "string") {
       return res.status(400).json({ error: "Name is required" });
     }
+    if (!roomId) {
+      return res.status(400).json({ error: "roomId is required" });
+    }
 
-    await dbRun("INSERT INTO users (id, name) VALUES ($1, $2)", [id, name]);
+    await dbRun("INSERT INTO users (room_id, id, name) VALUES ($1, $2, $3)", [roomId, id, name]);
 
-    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = $1", [id]);
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE room_id = $1 AND id = $2", [roomId, id]);
     res.status(201).json(row);
   } catch (err) {
     handleDbError(res, err);
@@ -192,14 +209,16 @@ app.put("/users/:id", async (req, res) => {
       return res.status(400).json({ error: "No fields to update" });
     }
 
+    const roomId = req.body.roomId || req.query.roomId || "";
+    params.push(roomId);
     params.push(playerId);
-    const result = await dbRun(`UPDATE users SET ${updates.join(", ")} WHERE id = $2`, params);
+    const result = await dbRun(`UPDATE users SET ${updates.join(", ")} WHERE room_id = $2 AND id = $3`, params);
     const changes = result.rowCount || 0;
     if (changes === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
-    const row = await dbGet("SELECT id, name AS name FROM users WHERE id = $1", [playerId]);
+    const row = await dbGet("SELECT id, name AS name FROM users WHERE room_id = $1 AND id = $2", [roomId, playerId]);
     res.json(row);
   } catch (err) {
     handleDbError(res, err);
@@ -210,27 +229,18 @@ app.put("/users/:id", async (req, res) => {
 app.delete("/users/:id", async (req, res) => {
   try {
     const playerId = Number(req.params.id);
+    const roomId = req.query.roomId || "";
     if (Number.isNaN(playerId)) {
       return res.status(400).json({ error: "Invalid player id" });
     }
 
-    const result = await dbRun("DELETE FROM users WHERE id = $1", [playerId]);
+    const result = await dbRun("DELETE FROM users WHERE room_id = $1 AND id = $2", [roomId, playerId]);
     const changes = result.rowCount || 0;
     if (changes === 0) {
       return res.status(404).json({ error: "User not found" });
     }
 
     res.status(204).send();
-  } catch (err) {
-    handleDbError(res, err);
-  }
-});
-
-// Alias route to match users style
-app.get("/users", async (req, res) => {
-  try {
-    const rows = await dbAll("SELECT id, name AS name FROM users");
-    res.json(rows);
   } catch (err) {
     handleDbError(res, err);
   }
