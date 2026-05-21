@@ -13,12 +13,12 @@ const { Pool } = require("pg");
 
 const pool = new Pool(
   process.env.DATABASE_URL
-    ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
+    ? { connectionString: 'postgresql://ep-jolly-waterfall-akwyad7n-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require', ssl: { rejectUnauthorized: false } }
     : {
         host: process.env.DB_HOST || "127.0.0.1",
-        user: process.env.DB_USER || "impostor_user",
-        password: process.env.DB_PASSWORD || "impostor_pass",
-        database: process.env.DB_NAME || "impostor",
+        user: process.env.DB_USER || "npg_1AHcQMk6ouSv",
+        password: process.env.DB_PASSWORD || "npg_1AHcQMk6ouSv",
+        database: process.env.DB_NAME || "neondb",
         port: Number(process.env.DB_PORT) || 5432,
       }
 );
