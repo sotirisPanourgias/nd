@@ -7,15 +7,12 @@ const fs = require("fs");
 const path = require("path");
 
 const pool = new Pool(
-  process.env.DATABASE_URL
-    ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
-    : {
-        host: process.env.DB_HOST || "127.0.0.1",
-        user: process.env.DB_USER || "impostor_user",
-        password: process.env.DB_PASSWORD || "impostor_pass",
-        database: process.env.DB_NAME || "impostor",
-        port: Number(process.env.DB_PORT) || 5432,
-      }
+    process.env.DATABASE_URL
+        ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
+        : {
+            connectionString: 'postgresql://neondb_owner:npg_1AHcQMk6ouSv@ep-jolly-waterfall-akwyad7n-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
+            ssl: { rejectUnauthorized: false }
+        }
 );
 
 const DB_SCRIPTS_DIR = path.join(__dirname, "../../db/scripts");
