@@ -8,6 +8,7 @@
     "games/impostor/frontend"
   ],
   "scripts": {
+    "npm:install": "npm install --workspaces",
     "start": "npm run start:backend",
     "start:backend": "npm --workspace games/impostor/backend start",
     "start:frontend": "npm --workspace games/impostor/frontend start",
