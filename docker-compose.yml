@@ -27,6 +27,7 @@ services:
     ports:
       - "8081:8081"
     environment:
+      DATABASE_URL: "postgresql://neondb_owner:npg_1AHcQMk6ouSv@ep-jolly-waterfall-akwyad7n-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require"
       DB_HOST: postgres
       DB_USER: impostor_user
       DB_PASSWORD: impostor_pass

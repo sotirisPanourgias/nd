@@ -6,14 +6,10 @@ const { Pool } = require("pg");
 const fs = require("fs");
 const path = require("path");
 
-const pool = new Pool(
-    process.env.DATABASE_URL
-        ? { connectionString: process.env.DATABASE_URL, ssl: { rejectUnauthorized: false } }
-        : {
-            connectionString: 'postgresql://neondb_owner:npg_1AHcQMk6ouSv@ep-jolly-waterfall-akwyad7n-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require',
-            ssl: { rejectUnauthorized: false }
-        }
-);
+const DEFAULT_DATABASE_URL =
+  'postgresql://neondb_owner:npg_1AHcQMk6ouSv@ep-jolly-waterfall-akwyad7n-pooler.c-3.us-west-2.aws.neon.tech/neondb?sslmode=require&channel_binding=require';
+const databaseUrl = process.env.DATABASE_URL || DEFAULT_DATABASE_URL;
+const pool = new Pool({ connectionString: databaseUrl, ssl: { rejectUnauthorized: false } });
 
 const DB_SCRIPTS_DIR = path.join(__dirname, "../../db/scripts");
 
