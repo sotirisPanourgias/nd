@@ -1,8 +1,3 @@
-databases:
-  - name: nd-impostor-db
-    databaseName: impostor
-    plan: free
-
 services:
   - type: web
     name: nd-impostor
